@@ -1,0 +1,7 @@
+www:
+  type: python
+  config:
+    smtp_server: smtp.mailgun.org
+    smtp_port: 25
+    smtp_username: postmaster@xxxx.mailgun.org
+    smtp_password: xxxx_password_xxxx
