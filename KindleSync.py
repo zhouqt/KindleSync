@@ -12,47 +12,57 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email import base64mime
 
-bot_name = "KindleBot"
-from_addr = "<kindlebot@kindle.bot>"
-to_addr = ["<xxxx@kindle.com>"]
 
-input_encode = 'gbk'
-output_encode = 'utf-8'
+source_dict = [
+    {
+        'base_url'  : r'http://tieba.baidu.com',
+        'title_url' : r'/name/of/tieba/',
+        'type' : 'tieba',
+        'title_html_tag' : 'td',
+        'title_html_attr' : {'class' : 'thread_title'},
+        'title_filter_re' : '第.*?章',
+        'post_html_tag' : 'p',
+        'post_html_attr' : {'class' : 'd_post_content'},
+        'strip_html_tag' : True,
+        'save_newest_pid': True,
+        'last_post_id_file' : 'last_pid_1',
+        'from_addr' : '<kindlebot@kindle.bot>',
+        'to_addr' : ['<xxxx@kindle.com>'],
+    },
+    {
+        'base_url'  : r'http://tieba.baidu.com',
+        'title_url' : r'/name/of/tieba/',
+        'type' : 'tieba',
+        'title_html_tag' : 'div',
+        'title_html_attr' : {'class' : 'th_lz'},
+        'title_filter_re' : '第.*?章',
+        'post_html_tag' : 'p',
+        'post_html_attr' : {'class' : 'd_post_content'},
+        'strip_html_tag' : True,
+        'save_newest_pid': True,
+        'last_post_id_file' : 'last_pid_2',
+        'from_addr' : '<kindlebot@kindle.bot>',
+        'to_addr' : ['<xxxx@kindle.com>'],
+   }
+]
 
-base_url = "http://tieba.baidu.com"
-index_url = base_url + r'/name/of/tieba/'
+def get_last_post_id(pid_file):
+    last_pid = 0
+    try:
+        f = open(pid_file, 'r')
+        last_pid = int(f.readline())
+        f.close()
+    except:
+        pass
+    return last_pid
 
-# regexes
-title_filter_re = '第.*?章'
 
-strip_html_tag = True
-
-#last_pid_file = os.getcwd() + "/last_pid"
-last_pid_file = "/home/dotcloud/code/last_pid"
-
-last_pid = 0
-try:
-    f = open(last_pid_file, 'r')
-    last_pid = int(f.readline())
-    f.close()
-except:
-    pass
-newest_pid = last_pid
-
-def check_old_post(p_link):
-    tmp = p_link.split('/')
-    p_id = 0
+def get_post_id(post_link):
+    tmp = post_link.split('/')
+    post_id = 0
     if tmp:
-        p_id = int(tmp[-1])
-
-    global newest_pid, last_pid
-
-    if p_id > newest_pid:
-        newest_pid = p_id
-
-    if p_id > last_pid:
-        return False
-    return True
+        post_id = int(tmp[-1])
+    return post_id
 
 
 def send_mail(from_addr, to_addr, subject, content, attachment=None,
@@ -108,10 +118,19 @@ def url_fetch(url):
     return data
 
 
-def get_content(url):
-    post_page = url_fetch(url)
-    soup = BeautifulSoup(post_page, fromEncoding=input_encode)
-    content_list = soup.findAll('p', {'class' : 'd_post_content'})
+def get_content(url, html_tag, html_attr, strip_html_tag=True,
+                input_encode='gbk', output_encode='utf-8'):
+    """
+    @param url: page of post title.
+    @param html_tag: html tag I should get.
+    @param html_attr: the html which has this attr will be picked up.
+    @param strip_html_tag: whether I should remove all html tag.
+
+    @return string of plain post text.
+    """
+    page = url_fetch(url)
+    soup = BeautifulSoup(page, fromEncoding=input_encode)
+    content_list = soup.findAll(html_tag, html_attr)
 
     # output is what I really want.
     output = ""
@@ -128,18 +147,38 @@ def get_content(url):
             output += post
     return output
 
-def main():
-    title_page = url_fetch(index_url)
-    soup = BeautifulSoup(title_page, fromEncoding=input_encode)
-    title_list = soup.findAll("td", {"class" : "thread_title"})
 
-    for title in title_list:
+def get_title_list(url, html_tag, html_attr, title_filter_re=None,
+                   last_post_id=None, get_post_id_func=get_post_id,
+                   input_encode='gbk', output_encode='utf-8'):
+    """
+    @param url: page of post title.
+    @param html_tag: html tag I should get.
+    @param html_attr: the html which has this attr will be picked up.
+    @param title_filter_re: filter for title.
+    @param save_newest_pid: save newest post id, so I can get the latest post.
+
+    @return a list contain post title and link.
+    """
+    page = url_fetch(url)
+    # force encode content in utf-8, ignore invalid character.
+    page = str(page).decode(input_encode, 'ignore').encode(output_encode)
+    soup = BeautifulSoup(page, fromEncoding=input_encode)
+    t_list = soup.findAll(html_tag, html_attr)
+
+    newest_post_id = last_post_id
+    title_list = []
+    for title in t_list:
         post_link = title.a['href'].encode(output_encode)
         post_title = title.a.renderContents(output_encode)
         # ignore old post
-        if check_old_post(post_link) is True:
+        post_id = get_post_id_func(post_link)
+        if post_id < last_post_id:
             continue
 
+        # remember the newest post we get.
+        if post_id > newest_post_id:
+            newest_post_id = post_id
         # choose title which we really need.
         if title_filter_re is not None:
             if not re.findall(title_filter_re, post_title):
@@ -148,15 +187,47 @@ def main():
         # shorten the title, amazon seems not like long title...
         post_title = re.sub('^.*?第', '第', post_title)
 
-        # get the real content
-        output = get_content(base_url + post_link)
+        title_list.append((post_link, post_title))
 
-        if output is not "":
-            send_mail(from_addr, to_addr, post_title,
-                      '', [('%s.txt' % post_title, output)])
+    return newest_post_id, title_list
 
-    if newest_pid != 0:
-        open(last_pid_file, 'w').write(str(newest_pid))
+
+def main():
+
+    for src in source_dict:
+        url = src.get('base_url') + src.get('title_url')
+        last_post_id = get_last_post_id(src.get('last_post_id_file'))
+        newest_post_id, title_list = get_title_list(url,
+                                    src.get('title_html_tag'),
+                                    src.get('title_html_attr'),
+                                    src.get('title_filter_re'),
+                                    last_post_id,
+                                    get_post_id,
+                                    src.get('input_encode', 'gbk'),
+                                    src.get('output_encode', 'utf-8'))
+
+        for post_link, post_title in title_list:
+            # get the real content
+            url = src.get('base_url') + post_link
+            output = get_content(url,
+                                 src.get('post_html_tag'),
+                                 src.get('post_html_attr'),
+                                 src.get('strip_html_tag', True),
+                                 src.get('input_encode', 'gbk'),
+                                 src.get('output_encode', 'utf-8'))
+
+            if output is not "":
+                send_mail(src.get('from_addr'),
+                          src.get('to_addr'),
+                          post_title,
+                          '',
+                          [('%s.txt' % post_title, output)],
+                          src.get('output_encode', 'utf-8'))
+
+        if (src.get('save_newest_pid', True) is True) and \
+           (newest_post_id > last_post_id):
+            open(src.get('last_post_id_file'), 'w').write(str(newest_post_id))
+
 
 if __name__ == "__main__":
     main()
