@@ -1,8 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 #-*-coding:utf-8 -*-
 
 import re
 import smtplib
+
+from BeautifulSoup import BeautifulSoup
 
 from email.Header import Header
 from email.MIMEBase import MIMEBase
@@ -21,9 +23,7 @@ base_url = "http://tieba.baidu.com"
 index_url = base_url + r'/name/of/tieba/'
 
 # regexes
-index_re = r'td class="thread_title"\>.*?href="(.*?)".*?\>(.*?)\<\/a\>'
 title_filter_re = '第.*?章'
-post_re = r'p id="post_content_.*?\>(.*?)\<\/p\>'
 
 strip_html_tag = True
 
@@ -75,12 +75,13 @@ def send_mail(subject, content, attachment=None):
     server.sendmail(from_addr, to_addr, mail.as_string())
     server.quit()
 
-def get_url_content(url):
+
+def url_fetch(url):
     try:
         import pycurl
         import StringIO
         c = pycurl.Curl()
-        c.setopt(pycurl.URL,url)
+        c.setopt(pycurl.URL, url)
         b = StringIO.StringIO()
         c.setopt(pycurl.WRITEFUNCTION, b.write)
         c.setopt(pycurl.FOLLOWLOCATION, 1)
@@ -97,46 +98,51 @@ def get_url_content(url):
     return data
 
 
+def get_content(url):
+    post_page = url_fetch(url)
+    soup = BeautifulSoup(post_page, fromEncoding=input_encode)
+    content_list = soup.findAll('p', {'class' : 'd_post_content'})
+
+    # output is what I really want.
+    output = ""
+    for content in content_list:
+        post = content.renderContents(output_encode)
+        if strip_html_tag is True:
+            # replace <br> with \n.
+            post = re.sub('\<br.*?\>', '\n', post)
+            post = re.sub('\<.*?\>', '', post)
+        #XXX: ignore the comment which size is less then 200,
+        #     need a more beautiful method here.
+        if len(post) > 500:
+            output += "\n- - - - - - \n"
+            output += post
+    return output
+
 def main():
-    index_page = get_url_content(index_url)
-    title_list = re.findall(index_re, index_page, re.S)
+    title_page = url_fetch(index_url)
+    soup = BeautifulSoup(title_page, fromEncoding=input_encode)
+    title_list = soup.findAll("td", {"class" : "thread_title"})
 
-    for p_link, p_title in title_list:
+    for title in title_list:
+        post_link = title.a['href'].encode(output_encode)
+        post_title = title.a.renderContents(output_encode)
         # ignore old post
-        if check_old_post(p_link) is True:
+        if check_old_post(post_link) is True:
             continue
-
-        p_title = p_title.decode(input_encode).encode(output_encode)
 
         # choose title which we really need.
         if title_filter_re is not None:
-            if not re.findall(title_filter_re, p_title):
+            if not re.findall(title_filter_re, post_title):
                 continue
 
         # shorten the title, amazon seems not like long title...
-        p_title = re.sub('^.*?第', '第', p_title)
+        post_title = re.sub('^.*?第', '第', post_title)
 
-        p_url = base_url + p_link
-        p_page = get_url_content(p_url)
-        p_content = re.findall(post_re, p_page)
-
-        # output is what I really want.
-        output = ""
-        for p in p_content:
-            # convert text to utf-8.
-            p = p.decode(input_encode).encode(output_encode)
-            if strip_html_tag is True:
-                # replace <br> with \n.
-                p = re.sub('\<br.*?\>', '\n', p)
-                p = re.sub('\<.*?\>', '', p)
-            #XXX: ignore the comment which size is less then 200,
-            #     need a more beautiful method here.
-            if len(p) > 200:
-                output += "\n- - - - - - \n"
-                output += p
+        # get the real content
+        output = get_content(base_url + post_link)
 
         if output is not "":
-            send_mail(p_title, output)
+            send_mail(post_title, output)
 
     if newest_pid != 0:
         open(last_pid_file, 'w').write(str(newest_pid))
