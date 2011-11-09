@@ -14,7 +14,7 @@ from email import base64mime
 
 bot_name = "KindleBot"
 from_addr = "<kindlebot@kindle.bot>"
-to_addr = "<xxxx@kindle.com>"
+to_addr = ["<xxxx@kindle.com>"]
 
 input_encode = 'gbk'
 output_encode = 'utf-8'
@@ -54,26 +54,36 @@ def check_old_post(p_link):
         return False
     return True
 
-def send_mail(subject, content, attachment=None):
+
+def send_mail(from_addr, to_addr, subject, content, attachment=None,
+              output_encode='utf-8'):
 
     mail = MIMEMultipart()
-    mail['From'] = bot_name + " " + from_addr
-    mail['To'] = bot_name + " " + to_addr
+    mail['From'] = from_addr
+    mail['To'] = ";".join(to_addr)
     mail['Subject'] = Header(subject, output_encode)
 
-    text = MIMEText(subject, 'plain', output_encode)
+    text = MIMEText(content, 'plain', output_encode)
     mail.attach(text)
 
-    att = MIMEBase('application', 'octet-stream')
-    att.set_payload(content, output_encode)
-    att.add_header('content-disposition', 'attachment',
-                   filename=base64mime.header_encode(subject + '.txt', output_encode))
-    mail.attach(att)
+    for name, attach in attachment:
+        att = MIMEBase('application', 'octet-stream')
+        att.set_payload(attach, output_encode)
+        name_encoded = base64mime.header_encode(name, output_encode)
+        att.add_header('content-disposition', 'attachment',
+                       filename="%s" % name_encoded)
+        mail.attach(att)
 
-    server = smtplib.SMTP('localhost')
-    print "Sending %s to kindle..." % subject
-    server.sendmail(from_addr, to_addr, mail.as_string())
-    server.quit()
+    print "Sending %s to %s..." % (subject, to_addr),
+    try:
+        server = smtplib.SMTP('localhost')
+        server.sendmail(from_addr, to_addr, mail.as_string())
+        server.quit()
+        print 'Done.'
+        return True
+    except Exception, e:
+        print 'Failed.\n %s' % e
+        return False
 
 
 def url_fetch(url):
@@ -142,7 +152,8 @@ def main():
         output = get_content(base_url + post_link)
 
         if output is not "":
-            send_mail(post_title, output)
+            send_mail(from_addr, to_addr, post_title,
+                      '', [('%s.txt' % post_title, output)])
 
     if newest_pid != 0:
         open(last_pid_file, 'w').write(str(newest_pid))
