@@ -19,29 +19,7 @@ sys.path.insert(0, sites_dir)
 
 from sites import SiteDispatcher
 from sites import BaseSite
-
-default_config = {
-    'strip_html_tag' : True,
-    'save_newest_pid': False,
-    'last_post_id_file' : 'last_pid_1',
-    'from_addr' : '<kindlebot@kindle.bot>',
-    'to_addr' : ['<xxxx@kindle.com>'],
-}
-
-source_list = [
-    {
-        'book_name': 'book1',
-        'site_type': 'Tieba',
-        'title_url': r'/name/of/tieba/',
-        'last_post_id_file': 'last_pid_1',
-    },
-    {
-        'book_name': 'book2',
-        'site_type': 'Tieba2',
-        'title_url': r'/name/of/tieba/',
-        'last_post_id_file': 'last_pid_2',
-    },
-]
+from config import default_config, source_list
 
 def parse_config(site_config, source):
     cfg = default_config.copy()

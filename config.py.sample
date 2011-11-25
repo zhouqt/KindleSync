@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+#-*-coding:utf-8 -*-
+
+default_config = {
+    'strip_html_tag' : True,
+    'save_newest_pid': False,
+    'last_post_id_file' : 'last_pid_1',
+    'from_addr' : '<kindlebot@kindle.bot>',
+    'to_addr' : ['<xxxx@kindle.com>'],
+}
+
+
+source_list = [
+    {
+        'book_name': 'book1',
+        'site_type': 'tieba',
+        'title_url': r'/name/of/tieba/',
+        'last_post_id_file': 'last_pid_1',
+    },
+    {
+        'book_name': 'book2',
+        'site_type': 'tieba2',
+        'title_url': r'/name/of/tieba/',
+        'last_post_id_file': 'last_pid_2',
+   },
+]
+
