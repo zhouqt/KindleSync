@@ -3,6 +3,7 @@
 
 import re
 import smtplib
+import time
 
 from BeautifulSoup import BeautifulSoup
 
@@ -15,6 +16,7 @@ from email import base64mime
 
 source_dict = [
     {
+        'book_name': 'book1',
         'base_url'  : r'http://tieba.baidu.com',
         'title_url' : r'/name/of/tieba/',
         'type' : 'tieba',
@@ -30,6 +32,7 @@ source_dict = [
         'to_addr' : ['<xxxx@kindle.com>'],
     },
     {
+        'book_name': 'book2',
         'base_url'  : r'http://tieba.baidu.com',
         'title_url' : r'/name/of/tieba/',
         'type' : 'tieba',
@@ -206,23 +209,26 @@ def main():
                                     src.get('input_encode', 'gbk'),
                                     src.get('output_encode', 'utf-8'))
 
+        output = ''
         for post_link, post_title in title_list:
             # get the real content
+            output += '\n%s\n' % post_title
             url = src.get('base_url') + post_link
-            output = get_content(url,
+            output += get_content(url,
                                  src.get('post_html_tag'),
                                  src.get('post_html_attr'),
                                  src.get('strip_html_tag', True),
                                  src.get('input_encode', 'gbk'),
                                  src.get('output_encode', 'utf-8'))
 
-            if output is not "":
-                send_mail(src.get('from_addr'),
-                          src.get('to_addr'),
-                          post_title,
-                          '',
-                          [('%s.txt' % post_title, output)],
-                          src.get('output_encode', 'utf-8'))
+        if output != "":
+            send_mail(src.get('from_addr'),
+                      src.get('to_addr'),
+                      'Convert',
+                      '',
+                      [('%s-%s.txt' % src.get('book_name'),
+                          time.strftime('%F-%R'), output)],
+                      src.get('output_encode', 'utf-8'))
 
         if (src.get('save_newest_pid', True) is True) and \
            (newest_post_id > last_post_id):
