@@ -27,7 +27,7 @@ class SiteConfigNotFoundError(SiteConfigError):
         return 'Could not find site config for type "%s"' % self.source_type
 
 
-class Site(object):
+class BaseSite(object):
     """
     Here is an example of Site definiton, and it's interfaces
     """
