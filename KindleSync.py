@@ -46,7 +46,9 @@ def send_mail(from_addr, to_addr, subject, content, attachment=None,
     text = MIMEText(content, 'plain', output_encode)
     mail.attach(text)
 
+    att_names = []
     for name, attach in attachment:
+        att_names.append(name)
         att = MIMEBase('application', 'octet-stream')
         att.set_payload(attach, output_encode)
         name_encoded = base64mime.header_encode(name, output_encode)
@@ -60,6 +62,7 @@ def send_mail(from_addr, to_addr, subject, content, attachment=None,
         server.sendmail(from_addr, to_addr, mail.as_string())
         server.quit()
         print 'Done.'
+        print 'Attachment list:\n %s' % '\n '.join(att_names)
         return True
     except Exception, e:
         print 'Failed.\n %s' % e
@@ -126,12 +129,13 @@ def main():
             output += '\n'.join(site.get_content(page))
 
         if output != '':
+            file_name = '%s-%s.txt' % (src.get('book_name'),
+                                       time.strftime('%F-%R'))
             send_mail(src.get('from_addr'),
                       src.get('to_addr'),
                       'Convert',
                       '',
-                      [('%s-%s.txt' % src.get('book_name'),
-                          time.strftime('%F-%R'), output)],
+                      [(file_name, output)],
                       src.get('output_encode', 'utf-8'))
 
         if (src.get('save_newest_pid', True) is True) and \
