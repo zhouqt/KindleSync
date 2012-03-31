@@ -56,7 +56,10 @@ class Tieba(object):
         tmp = post_link.split('/')
         post_id = 0
         if tmp:
-            post_id = int(tmp[-1])
+            try:
+                post_id = int(tmp[-1])
+            except Exception:
+                pass
         return post_id
 
 
