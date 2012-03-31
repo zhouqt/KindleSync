@@ -139,8 +139,8 @@ def main():
                       src.get('output_encode', 'utf-8'))
 
         if (src.get('save_newest_pid', True) is True) and \
-           (newest_post_id > last_post_id):
-            open(src.get('last_post_id_file'), 'w').write(str(newest_post_id))
+           (newest_post > site.last_post_id):
+            open(src.get('last_post_file'), 'w').write(str(newest_post))
 
 
 if __name__ == '__main__':
