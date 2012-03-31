@@ -1,2 +1,5 @@
 .git/*
 *.swp
+*.pyc
+config.py
+dotcloud.yml
